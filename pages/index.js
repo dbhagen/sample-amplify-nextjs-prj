@@ -1,20 +1,41 @@
+import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
 import Link from 'next/link'
-import { withSSRContext } from 'aws-amplify'
+import { Auth, withSSRContext } from 'aws-amplify'
 
 export async function getServerSideProps ({ req }) {
   const SSR = withSSRContext({ req })
-  const { user } = SSR.Auth
-  console.log('SSR User', user)
+  const { Auth } = SSR
+  console.log('SSR User before currentAuthenticatedUser()', await Auth.user)
+  await Auth.currentAuthenticatedUser()
+  console.log('SSR User after currentAuthenticatedUser()', await Auth.user)
   return {
     props: {
-      SSRuser: user
+      SSRuser: (Auth.user && Auth.user.username) ? Auth.user.username : 'null'
     }
   }
 }
 
 export default function Home({SSRuser}) {
+  const [ user, setUser ] = useState()
+  const [ _isAdmin, setIsAdmin ] = useState(false)
+
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        // eslint-disable-next-line no-shadow
+        const user = await Auth.currentAuthenticatedUser()
+        console.log('Client-side User:', user)
+        setUser(user)
+        setIsAdmin(!!(user.signInUserSession.accessToken.payload[ 'cognito:groups' ]?.includes('Admin')))
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    getUser()
+  }, [])
+
   return (
     <div className={styles.container}>
       <Head>
@@ -27,7 +48,8 @@ export default function Home({SSRuser}) {
         <div>
           <p>Test App</p>
           <Link href="/sign-in">Sign In/Profile</Link>
-          <div>SSRUser: <pre>{SSRuser}</pre></div>
+          <div>SSRUser: {SSRuser}</div>
+          <div>Client-side User: {user && user.username && user.username}</div>
         </div>
       </main>
 
