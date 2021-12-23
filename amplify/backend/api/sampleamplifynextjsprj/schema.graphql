@@ -1,0 +1,4 @@
+type TestModel @model @auth(rules: [{allow: owner}]) {
+  id: ID!
+  name: String
+}

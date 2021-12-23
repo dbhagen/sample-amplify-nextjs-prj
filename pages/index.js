@@ -2,24 +2,37 @@ import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
 import Link from 'next/link'
-import { Auth, withSSRContext } from 'aws-amplify'
+import { Auth, withSSRContext, DataStore } from 'aws-amplify'
+import { TestModel } from '../src/models'
+import { serializeModel, deserializeModel } from '@aws-amplify/datastore/ssr'
 
 export async function getServerSideProps ({ req }) {
   const SSR = withSSRContext({ req })
   const { Auth } = SSR
+  let testModelData
   console.log('SSR User before currentAuthenticatedUser()', await Auth.user)
   await Auth.currentAuthenticatedUser()
   console.log('SSR User after currentAuthenticatedUser()', await Auth.user)
+  try {
+    testModelData = await SSR.DataStore.query(TestModel)
+  } catch (err) {
+    console.error('SSR TestModel Query error', err)
+  }
+  console.log('SSR TestModel Data', testModelData)
   return {
     props: {
+      SSRTestModelData: serializeModel(testModelData),
       SSRuser: (Auth.user && Auth.user.username) ? Auth.user.username : 'null'
     }
   }
 }
 
-export default function Home({SSRuser}) {
+export default function Home (context) {
+  const { SSRTestModelData, SSRuser } = context
   const [ user, setUser ] = useState()
   const [ _isAdmin, setIsAdmin ] = useState(false)
+  const [TestModelData, _setTestModelData] = useState(deserializeModel(TestModel, SSRTestModelData))
+  let ClientsideTestModelData
 
   useEffect(() => {
     const getUser = async () => {
@@ -29,6 +42,9 @@ export default function Home({SSRuser}) {
         console.log('Client-side User:', user)
         setUser(user)
         setIsAdmin(!!(user.signInUserSession.accessToken.payload[ 'cognito:groups' ]?.includes('Admin')))
+        console.log('SSRTestModelData', TestModelData)
+        ClientsideTestModelData = await DataStore.query(TestModel)
+        console.log('ClientsideTestModelData', ClientsideTestModelData)
       } catch (err) {
         console.error(err)
       }
@@ -50,6 +66,13 @@ export default function Home({SSRuser}) {
           <Link href="/sign-in">Sign In/Profile</Link>
           <div>SSRUser: {SSRuser}</div>
           <div>Client-side User: {user && user.username && user.username}</div>
+          <div>SSR TestModel: <pre>{SSRTestModelData}</pre></div>
+          <div>Client-side TestModel: <pre>{ClientsideTestModelData}</pre></div>
+          <div><button type='button' onClick={async () => {
+            const randStr = Math.random().toString(16).substr(2, 8)
+            await DataStore.save(new TestModel({ name: randStr }))
+          }
+          }>Create data</button></div>
         </div>
       </main>
 
