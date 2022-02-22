@@ -11,7 +11,11 @@ export async function getServerSideProps ({ req }) {
   const { Auth } = SSR
   let testModelData
   console.log('SSR User before currentAuthenticatedUser()', await Auth.user)
-  await Auth.currentAuthenticatedUser()
+  try {
+    // await Auth.currentAuthenticatedUser()
+  } catch (err) {
+    console.error('SSR User Authentication error', err)
+  }
   console.log('SSR User after currentAuthenticatedUser()', await Auth.user)
   try {
     testModelData = await SSR.DataStore.query(TestModel)
@@ -29,8 +33,8 @@ export async function getServerSideProps ({ req }) {
 
 export default function Home (context) {
   const { SSRTestModelData, SSRuser } = context
-  const [ user, setUser ] = useState()
-  const [ _isAdmin, setIsAdmin ] = useState(false)
+  const [user, setUser] = useState()
+  const [_isAdmin, setIsAdmin] = useState(false)
   const [TestModelData, _setTestModelData] = useState(deserializeModel(TestModel, SSRTestModelData))
   let ClientsideTestModelData
 
@@ -41,7 +45,7 @@ export default function Home (context) {
         const user = await Auth.currentAuthenticatedUser()
         console.log('Client-side User:', user)
         setUser(user)
-        setIsAdmin(!!(user.signInUserSession.accessToken.payload[ 'cognito:groups' ]?.includes('Admin')))
+        setIsAdmin(!!(user.signInUserSession.accessToken.payload['cognito:groups']?.includes('Admin')))
         console.log('SSRTestModelData', TestModelData)
         ClientsideTestModelData = await DataStore.query(TestModel)
         console.log('ClientsideTestModelData', ClientsideTestModelData)
